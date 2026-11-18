@@ -1,0 +1,551 @@
+[
+ {
+  "name": "Femmes",
+  "icon": "shirt",
+  "img": "print_dress",
+  "subs": [
+   {
+    "name": "Vêtements",
+    "src": "V",
+    "items": "Manteaux et vestes, pulls et sweats, blazers et tailleurs, robes, jupes, hauts et tee-shirts, pantalons, shorts, combinaisons, maillots de bain, lingerie, maternité, vêtements de sport"
+   },
+   {
+    "name": "Tenues Traditionnelles",
+    "src": "P",
+    "items": "Boubous, taille-basse, ensembles en wax, bazin, tenues de cérémonie, tenues de Tabaski et de Korité"
+   },
+   {
+    "name": "Chaussures",
+    "src": "V",
+    "items": "Talons et escarpins, chaussures plates, ballerines, sandales, baskets, bottines, mules et sabots, tongs, chaussures de sport"
+   },
+   {
+    "name": "Sacs",
+    "src": "V",
+    "items": "Sacs à main, sacs à bandoulière, sacs à dos, sacs fourre-tout, pochettes, porte-monnaie, trousses à maquillage, sacs de voyage"
+   },
+   {
+    "name": "Accessoires",
+    "src": "V",
+    "items": "Bijoux, montres, ceintures, lunettes de soleil, écharpes et châles, foulards et turbans, chapeaux, accessoires pour cheveux"
+   },
+   {
+    "name": "Beauté",
+    "src": "V+J",
+    "items": "Maquillage, parfums, soins du visage, soins du corps, soins des cheveux, manucure et vernis, accessoires de beauté, coffrets"
+   },
+   {
+    "name": "Mèches Et Perruques",
+    "src": "J",
+    "items": "Mèches, perruques, extensions, accessoires de coiffure"
+   }
+  ]
+ },
+ {
+  "name": "Hommes",
+  "icon": "user",
+  "img": "man_phone",
+  "subs": [
+   {
+    "name": "Vêtements",
+    "src": "V",
+    "items": "Jeans, manteaux et vestes, hauts et tee-shirts, costumes et blazers, pulls et sweats, pantalons, shorts, sous-vêtements et chaussettes, maillots de bain, vêtements de sport, pyjamas"
+   },
+   {
+    "name": "Tenues Traditionnelles",
+    "src": "P",
+    "items": "Grands boubous, caftans, ensembles trois pièces, tenues de cérémonie"
+   },
+   {
+    "name": "Chaussures",
+    "src": "V",
+    "items": "Mocassins et chaussures bateau, chaussures habillées, baskets, chaussures de sport, sandales, babouches, tongs, bottes"
+   },
+   {
+    "name": "Accessoires",
+    "src": "V",
+    "items": "Cravates et pochettes, sacs et sacoches, bijoux, ceintures, montres, lunettes de soleil, chapeaux et casquettes"
+   },
+   {
+    "name": "Soins",
+    "src": "V+J",
+    "items": "Soins du visage, soins des cheveux et de la barbe, soins du corps, parfums, rasage et épilation, coffrets"
+   }
+  ]
+ },
+ {
+  "name": "Enfants",
+  "icon": "baby",
+  "img": "kids_clothes",
+  "subs": [
+   {
+    "name": "Vêtements Filles",
+    "src": "V",
+    "items": "Bébé fille, vêtements d’extérieur, robes, jupes, hauts, pantalons, pyjamas, tenues de fête"
+   },
+   {
+    "name": "Vêtements Garçons",
+    "src": "V",
+    "items": "Bébé garçon, vêtements d’extérieur, chemises et tee-shirts, pantalons et shorts, pyjamas, tenues de fête"
+   },
+   {
+    "name": "Chaussures Enfants",
+    "src": "J",
+    "items": "Chaussures bébé, baskets, sandales, chaussures d’école"
+   },
+   {
+    "name": "Jeux Et Jouets",
+    "src": "V+J",
+    "items": "Jouets d’éveil, jeux éducatifs, poupées et figurines, jeux de construction, peluches, jouets d’extérieur"
+   },
+   {
+    "name": "Puériculture",
+    "src": "V+J",
+    "items": "Poussettes, porte-bébés, chaises hautes, sièges auto, mobilier enfant, sécurité bébé"
+   },
+   {
+    "name": "Soins Et Alimentation Bébé",
+    "src": "J",
+    "items": "Couches, bain et soin de la peau, biberons et alimentation, santé de bébé"
+   },
+   {
+    "name": "Scolarité",
+    "src": "V",
+    "items": "Cartables, fournitures scolaires, livres et manuels pour enfants"
+   },
+   {
+    "name": "Grossesse Et Maternité",
+    "src": "J",
+    "items": "Vêtements de grossesse, coussins d’allaitement, accessoires de maternité"
+   }
+  ]
+ },
+ {
+  "name": "Maison Et Bureau",
+  "icon": "armchair",
+  "img": "living_room",
+  "subs": [
+   {
+    "name": "Décoration",
+    "src": "V+J",
+    "items": "Tapis, coussins, vases, miroirs, horloges, bougies, plantes artificielles, art mural"
+   },
+   {
+    "name": "Textiles Et Literie",
+    "src": "V+J",
+    "items": "Linge de lit, couvertures, rideaux, linge de table, serviettes, moustiquaires"
+   },
+   {
+    "name": "Meubles",
+    "src": "J",
+    "items": "Salon, chambre, salle à manger, rangements, meubles d’extérieur"
+   },
+   {
+    "name": "Cuisine Et Arts De La Table",
+    "src": "V+J",
+    "items": "Ustensiles, vaisselle, cuisson et pâtisserie, rangement alimentaire, thermos"
+   },
+   {
+    "name": "Électroménager",
+    "src": "J",
+    "items": "Réfrigérateurs, congélateurs, machines à laver, cuisinières, petits appareils de cuisine, fers à repasser"
+   },
+   {
+    "name": "Climatisation Et Ventilation",
+    "src": "J",
+    "items": "Ventilateurs, climatiseurs, purificateurs d’air"
+   },
+   {
+    "name": "Éclairage",
+    "src": "J",
+    "items": "Lampes, luminaires, plafonniers, ampoules, lampes solaires"
+   },
+   {
+    "name": "Salle De Bain Et Entretien",
+    "src": "V+J",
+    "items": "Accessoires de salle de bain, produits et outils de nettoyage"
+   },
+   {
+    "name": "Bricolage Et Jardin",
+    "src": "V+J",
+    "items": "Outils, quincaillerie, plomberie, électricité, jardinage"
+   },
+   {
+    "name": "Fêtes Et Célébrations",
+    "src": "V+J",
+    "items": "Décoration de fête, vaisselle jetable, articles de cérémonie"
+   },
+   {
+    "name": "Bureau Et Papeterie",
+    "src": "V+J",
+    "items": "Fournitures de bureau, papeterie, mobilier de bureau, électronique de bureau"
+   }
+  ]
+ },
+ {
+  "name": "Électronique",
+  "icon": "smartphone",
+  "img": "phone_table",
+  "subs": [
+   {
+    "name": "Téléphones",
+    "src": "V+J",
+    "items": "Smartphones Android, iPhone, téléphones basiques, téléphones reconditionnés"
+   },
+   {
+    "name": "Accessoires Téléphone",
+    "src": "J",
+    "items": "Chargeurs, batteries externes, câbles, coques, protections d’écran, écouteurs"
+   },
+   {
+    "name": "Tablettes Et Liseuses",
+    "src": "V+J",
+    "items": "Tablettes, liseuses, accessoires pour tablette"
+   },
+   {
+    "name": "Ordinateurs",
+    "src": "V+J",
+    "items": "Ordinateurs portables, ordinateurs de bureau, écrans, composants, stockage, accessoires"
+   },
+   {
+    "name": "Imprimantes Et Réseau",
+    "src": "J",
+    "items": "Imprimantes, scanners, encres, routeurs et wifi"
+   },
+   {
+    "name": "TV Et Home Cinéma",
+    "src": "J",
+    "items": "Téléviseurs, décodeurs, barres de son, supports muraux"
+   },
+   {
+    "name": "Audio",
+    "src": "V+J",
+    "items": "Casques, écouteurs, enceintes, radios"
+   },
+   {
+    "name": "Photo Et Vidéo",
+    "src": "V+J",
+    "items": "Appareils photo, caméras, objectifs, trépieds"
+   },
+   {
+    "name": "Jeux Vidéo Et Consoles",
+    "src": "V+J",
+    "items": "Consoles, jeux, manettes, casques gaming"
+   },
+   {
+    "name": "Objets Connectés",
+    "src": "V+J",
+    "items": "Montres connectées, bracelets d’activité, maison connectée"
+   },
+   {
+    "name": "Énergie",
+    "src": "P",
+    "items": "Panneaux solaires, onduleurs, batteries, groupes électrogènes, stabilisateurs"
+   }
+  ]
+ },
+ {
+  "name": "Artisanat",
+  "icon": "hand-heart",
+  "img": "basket_close",
+  "subs": [
+   {
+    "name": "Vannerie",
+    "src": "P",
+    "items": "Paniers, corbeilles, nattes, éventails"
+   },
+   {
+    "name": "Maroquinerie Artisanale",
+    "src": "P",
+    "items": "Sacs, sandales, babouches, ceintures en cuir"
+   },
+   {
+    "name": "Tissage Et Teinture",
+    "src": "P",
+    "items": "Pagnes tissés, bazin teint, tissus wax, batik"
+   },
+   {
+    "name": "Bijoux Artisanaux",
+    "src": "P",
+    "items": "Perles, bijoux en argent, colliers, bracelets"
+   },
+   {
+    "name": "Bois, Poterie Et Sculpture",
+    "src": "P",
+    "items": "Masques, statuettes, canaris, objets en bois"
+   },
+   {
+    "name": "Art Et Tableaux",
+    "src": "P",
+    "items": "Sous-verres, peintures, tableaux de sable"
+   },
+   {
+    "name": "Instruments Traditionnels",
+    "src": "P",
+    "items": "Djembés, koras, sabars, balafons"
+   },
+   {
+    "name": "Couture Et Matériel",
+    "src": "J",
+    "items": "Tissus au mètre, mercerie, machines à coudre, fournitures d’art"
+   }
+  ]
+ },
+ {
+  "name": "Boutiques",
+  "icon": "store",
+  "img": "artisan_stall",
+  "subs": [
+   {
+    "name": "Toutes Les Boutiques",
+    "src": "J",
+    "items": "Annuaire des boutiques de comptes vérifiés"
+   },
+   {
+    "name": "Boutiques Près De Chez Moi",
+    "src": "P",
+    "items": "Classement par quartier : Médina, Plateau, Parcelles, Pikine, Ouakam…"
+   },
+   {
+    "name": "Nouvelles Boutiques",
+    "src": "P",
+    "items": "Boutiques ouvertes depuis moins de 30 jours"
+   },
+   {
+    "name": "Boutiques À La Une",
+    "src": "P",
+    "items": "Boutiques mises en avant (emplacement payant, signalé)"
+   },
+   {
+    "name": "Par Univers",
+    "src": "J",
+    "items": "Mode, beauté, maison, électronique, alimentation, artisanat, sport"
+   }
+  ]
+ },
+ {
+  "name": "Supermarché",
+  "icon": "shopping-basket",
+  "img": "supermarket2",
+  "subs": [
+   {
+    "name": "Riz Et Céréales",
+    "src": "J",
+    "items": "Riz, mil, maïs, semoule, fonio"
+   },
+   {
+    "name": "Épicerie Salée",
+    "src": "J",
+    "items": "Huiles et vinaigres, conserves, condiments, bouillons"
+   },
+   {
+    "name": "Épicerie Sucrée",
+    "src": "J",
+    "items": "Sucre et farine, biscuits, bonbons et chocolat, confitures"
+   },
+   {
+    "name": "Petit-Déjeuner",
+    "src": "J",
+    "items": "Café, thé, lait en poudre, céréales"
+   },
+   {
+    "name": "Épices Et Assaisonnements",
+    "src": "J",
+    "items": "Épices, herbes, mélanges pour thiéboudienne et yassa"
+   },
+   {
+    "name": "Boissons",
+    "src": "J",
+    "items": "Eaux, jus, bissap et gingembre, boissons chaudes"
+   },
+   {
+    "name": "Produits Locaux",
+    "src": "P",
+    "items": "Arachide, pain de singe, miel, céréales locales transformées"
+   },
+   {
+    "name": "Entretien Et Ménage",
+    "src": "J",
+    "items": "Lessive, vaisselle, désodorisants, papier et plastique"
+   }
+  ]
+ },
+ {
+  "name": "Livres Et Loisirs",
+  "icon": "book-open",
+  "img": "books_stack",
+  "subs": [
+   {
+    "name": "Livres",
+    "src": "V+J",
+    "items": "Romans, essais, livres pour enfants, livres religieux, livres en wolof"
+   },
+   {
+    "name": "Manuels Scolaires",
+    "src": "V",
+    "items": "Manuels du primaire au supérieur, annales, dictionnaires"
+   },
+   {
+    "name": "Bandes Dessinées Et Mangas",
+    "src": "V",
+    "items": "BD, mangas, romans graphiques"
+   },
+   {
+    "name": "Musique Et Films",
+    "src": "V+J",
+    "items": "CD, vinyles, DVD"
+   },
+   {
+    "name": "Instruments De Musique",
+    "src": "V+J",
+    "items": "Guitares, claviers, percussions, sonorisation, équipement DJ"
+   },
+   {
+    "name": "Jeux De Société Et Puzzles",
+    "src": "V",
+    "items": "Jeux de société, puzzles, jeux de cartes, damier, awalé"
+   },
+   {
+    "name": "Collections",
+    "src": "V",
+    "items": "Cartes, timbres, pièces, objets anciens"
+   },
+   {
+    "name": "Loisirs Créatifs",
+    "src": "V",
+    "items": "Dessin, peinture, couture, perles"
+   }
+  ]
+ },
+ {
+  "name": "Sports Et Santé",
+  "icon": "dumbbell",
+  "img": "football",
+  "subs": [
+   {
+    "name": "Football",
+    "src": "V+J",
+    "items": "Maillots, crampons, ballons, protège-tibias"
+   },
+   {
+    "name": "Fitness Et Musculation",
+    "src": "V+J",
+    "items": "Haltères, tapis, appareils, élastiques"
+   },
+   {
+    "name": "Lutte Et Sports De Combat",
+    "src": "P",
+    "items": "Équipements de lutte, boxe, arts martiaux"
+   },
+   {
+    "name": "Course Et Cyclisme",
+    "src": "V+J",
+    "items": "Chaussures de course, vélos, accessoires"
+   },
+   {
+    "name": "Sports Nautiques Et Pêche",
+    "src": "J",
+    "items": "Natation, surf, pêche"
+   },
+   {
+    "name": "Autres Sports",
+    "src": "V+J",
+    "items": "Basket, tennis, sports de raquette, sports de loisir"
+   },
+   {
+    "name": "Vêtements Et Accessoires De Sport",
+    "src": "V+J",
+    "items": "Survêtements, maillots, sacs de sport, gourdes"
+   },
+   {
+    "name": "Hygiène Et Soins",
+    "src": "J",
+    "items": "Soins bucco-dentaires, hygiène féminine, déodorants"
+   },
+   {
+    "name": "Bien-Être",
+    "src": "P",
+    "items": "Massage, relaxation, produits naturels (hors médicaments)"
+   }
+  ]
+ },
+ {
+  "name": "Voitures",
+  "icon": "car",
+  "img": "cars_parked",
+  "subs": [
+   {
+    "name": "Véhicules D'Occasion",
+    "src": "P",
+    "items": "Voitures, utilitaires [à confirmer : annonces de véhicules autorisées]"
+   },
+   {
+    "name": "Motos Et Scooters",
+    "src": "J",
+    "items": "Motos, scooters, équipements de pilote"
+   },
+   {
+    "name": "Pièces Détachées",
+    "src": "J",
+    "items": "Moteur, freinage, filtres, carrosserie, échappement, batteries"
+   },
+   {
+    "name": "Pneus Et Jantes",
+    "src": "J",
+    "items": "Pneus, jantes, enjoliveurs"
+   },
+   {
+    "name": "Accessoires Intérieurs",
+    "src": "J",
+    "items": "Housses de siège, tapis, organisateurs, désodorisants"
+   },
+   {
+    "name": "Accessoires Extérieurs",
+    "src": "J",
+    "items": "Rétroviseurs, autocollants, bâches, pare-chocs"
+   },
+   {
+    "name": "Électronique Embarquée",
+    "src": "J",
+    "items": "Autoradios, caméras de recul, GPS, chargeurs"
+   },
+   {
+    "name": "Entretien Et Outils",
+    "src": "J",
+    "items": "Huiles et liquides, nettoyage, outils et dépannage"
+   }
+  ]
+ },
+ {
+  "name": "Autres Catégories",
+  "icon": "shapes",
+  "img": "baskets_angola",
+  "subs": [
+   {
+    "name": "Animalerie",
+    "src": "J",
+    "items": "Alimentation et accessoires pour animaux"
+   },
+   {
+    "name": "Jardin Et Plein Air",
+    "src": "J",
+    "items": "Mobilier d’extérieur, camping, barbecue"
+   },
+   {
+    "name": "Matériel Professionnel",
+    "src": "J",
+    "items": "Équipement industriel et scientifique, matériel de commerce"
+   },
+   {
+    "name": "Services",
+    "src": "P",
+    "items": "Couture sur mesure, réparation, coiffure [à confirmer : services autorisés]"
+   },
+   {
+    "name": "Divers",
+    "src": "J",
+    "items": "Articles ne relevant d’aucune autre catégorie"
+   }
+  ]
+ }
+]
