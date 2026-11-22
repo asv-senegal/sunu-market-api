@@ -21,8 +21,15 @@ export async function aiSettings(userId) {
 
 const unavailable = (m) => new HttpError(503, m, 'smia_unavailable');
 
-// Appel unique au modèle, avec contrôle du solde, du plafond quotidien et journalisation du coût réel
-export async function callClaude({ userId = null, feature, system, messages, tools, toolChoice, maxTokens = 600 }) {
+// Réponse inutilisable (refus du modèle, ou réponse coupée) : rien n'est débité au commerçant
+const refused = () => new HttpError(422, 'SM-IA ne peut pas traiter cette demande. Reformulez-la. Aucun crédit n’a été débité.', 'smia_refused');
+const truncated = () => new HttpError(502, 'La réponse de SM-IA a été interrompue. Aucun crédit n’a été débité. Réessayez avec une demande plus courte.', 'smia_truncated');
+
+// Appel unique au modèle, avec contrôle du solde, du plafond quotidien et journalisation du coût réel.
+// Claude Haiku 5.5 réfléchit avant de répondre et cette réflexion compte dans max_tokens :
+// l'effort « low » la garde courte (paramètre smia_effort ; vide = ne pas l'envoyer, pour un modèle qui ne le gère pas).
+// Un appel qui force un outil (toolChoice) répond directement, sans réflexion.
+export async function callClaude({ userId = null, feature, system, messages, tools, toolChoice, maxTokens = 1200 }) {
   const s = await settings();
   if (!s.smia_enabled) throw unavailable('SM-IA est temporairement coupé par l’administration.');
   if (!process.env.ANTHROPIC_API_KEY) throw unavailable('SM-IA n’est pas encore configuré sur ce serveur.');
@@ -37,28 +44,42 @@ export async function callClaude({ userId = null, feature, system, messages, too
     if (today + reserve > st.daily_credit_cap) throw new HttpError(429, `Limite quotidienne de ${st.daily_credit_cap} crédits atteinte. Modifiez-la dans l’Assistant SM-IA.`, 'daily_cap');
   }
   const model = s.smia_model || 'claude-haiku-5-5';
-  let d; let error = null;
+  const effort = s.smia_effort === undefined ? 'low' : s.smia_effort;
+  let d; let error = null; let failure = null;
   try {
     const r = await fetch(`${API()}/v1/messages`, {
       method: 'POST',
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages, ...(tools ? { tools } : {}), ...(toolChoice ? { tool_choice: toolChoice } : {}) }),
+      body: JSON.stringify({
+        model, max_tokens: maxTokens, system, messages,
+        ...(tools ? { tools } : {}), ...(toolChoice ? { tool_choice: toolChoice } : {}),
+        ...(effort ? { output_config: { effort } } : {}),
+      }),
       signal: AbortSignal.timeout(45_000),
     });
     d = await r.json().catch(() => ({}));
     if (!r.ok) error = d?.error?.message || `HTTP ${r.status}`;
   } catch (e) { error = e.message; }
+  const blocks = d?.content || [];
+  // Réponse reçue mais inutilisable : refus du modèle, ou plafond atteint avant la réponse complète
+  if (!error && d?.stop_reason === 'refusal') { error = `refus${d.stop_details?.category ? ` (${d.stop_details.category})` : ''}`; failure = refused; }
+  else if (!error && d?.stop_reason === 'max_tokens') { error = `réponse coupée à ${maxTokens} tokens`; failure = truncated; }
   const usage = d?.usage || {};
-  const { usd, credits } = error ? { usd: 0, credits: 0 } : costOf(usage, p);
-  const charged = userId ? credits : 0;
+  // Le coût réel facturé par Anthropic est toujours journalisé ; le commerçant n'est débité que pour une réponse utilisable
+  const { usd, credits } = d?.usage ? costOf(usage, p) : { usd: 0, credits: 0 };
+  const charged = userId && !error ? credits : 0;
+  const logCall = (t) => t.one(
+    `INSERT INTO ai_calls (user_id, feature, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, credits, ok, error)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+    [userId, feature, model, usage.input_tokens || 0, usage.output_tokens || 0, usage.cache_read_input_tokens || 0, usage.cache_creation_input_tokens || 0, usd, charged, !error, error]);
+  if (error) {
+    // Journalisé hors transaction : l'erreur levée ensuite ne doit pas effacer la trace (ni le coût réel)
+    await logCall(db);
+    throw failure ? failure() : new HttpError(502, 'SM-IA n’a pas pu répondre. Aucun crédit n’a été débité. Réessayez dans un instant.', 'smia_error');
+  }
   return db.tx(async (t) => {
-    const call = await t.one(
-      `INSERT INTO ai_calls (user_id, feature, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, credits, ok, error)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-      [userId, feature, model, usage.input_tokens || 0, usage.output_tokens || 0, usage.cache_read_input_tokens || 0, usage.cache_creation_input_tokens || 0, usd, charged, !error, error]);
-    if (error) throw new HttpError(502, 'SM-IA n’a pas pu répondre. Aucun crédit n’a été débité. Réessayez dans un instant.', 'smia_error');
+    const call = await logCall(t);
     if (charged) await move(t, userId, -charged, 'usage', { aiCallId: call.id, note: feature });
-    const blocks = d.content || [];
     return {
       callId: call.id, credits: charged, blocks,
       text: blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim(),
@@ -76,7 +97,7 @@ const LISTING_TOOL = {
 };
 export async function describeListing(userId, input) {
   const r = await callClaude({
-    userId, feature: 'description', maxTokens: 500, tools: [LISTING_TOOL], toolChoice: { type: 'tool', name: 'ecrire_annonce' },
+    userId, feature: 'description', maxTokens: 800, tools: [LISTING_TOOL], toolChoice: { type: 'tool', name: 'ecrire_annonce' },
     system: `Tu es SM-IA, l’assistant de rédaction des commerçants de Sunu-Market (marketplace de Dakar). ${STYLE} Rédige une annonce claire, honnête et vendeuse, uniquement à partir des informations fournies. Mentionne l’état réel. Pas d’allégation médicale, pas de superlatifs invérifiables.`,
     messages: [{ role: 'user', content: `Catégorie : ${input.category || 'non précisée'}\nTitre proposé : ${input.title || ''}\nÉtat : ${input.condition || ''}\nNotes du commerçant : ${input.notes || ''}` }],
   });
@@ -126,7 +147,7 @@ export async function assistantChat(userId, text) {
   const history = (await db.many('SELECT role, content FROM ai_messages WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10', [userId])).reverse();
   const s = await settings();
   const r = await callClaude({
-    userId, feature: 'assistant', maxTokens: 700, tools: [PROPOSE_TOOL],
+    userId, feature: 'assistant', maxTokens: 1500, tools: [PROPOSE_TOOL],
     system: `Tu es SM-IA, le conseiller personnel d’un commerçant sur Sunu-Market, marketplace de Dakar sans commission sur les ventes (le paiement se fait directement entre membres). ${STYLE}
 Niveau d’autonomie choisi : ${st.autonomy} (1 = tu conseilles et proposes ; 2 = tu prépares des brouillons ; 3 = textes d’annonces appliqués seuls, jamais les prix, annulations ni dépenses).
 Tu peux proposer une mise en avant ou une campagne (payantes, jamais lancées sans accord), une nouvelle rédaction d’annonce ou un changement de prix (toujours soumis à accord), via l’outil proposer_action. Maximum deux propositions par réponse. Sois bref (6 phrases maximum).
@@ -185,7 +206,7 @@ async function runChatbot(conversationId) {
   let r;
   try {
     r = await callClaude({
-      userId: c.seller_id, feature: 'chatbot', maxTokens: 400, tools,
+      userId: c.seller_id, feature: 'chatbot', maxTokens: 1000, tools,
       system: `Tu es SM-IA, l’assistant de la boutique « ${info?.shop} » sur Sunu-Market (Dakar). Tu réponds dans SM-Chat à la place du commerçant ${c.seller_first}, qui est absent. ${STYLE}
 Règles strictes : utilise uniquement les informations de l’annonce ci-dessous ; ne négocie jamais le prix, n’accorde aucune remise, n’annule rien, ne promets aucun remboursement (Sunu-Market n’encaisse pas les paiements, ils se font directement à la remise) ; transmets ces demandes au commerçant. Conseille de payer à la remise après vérification. Réponse courte (3 phrases maximum).
 ${st.perm_answer ? '' : 'Tu ne réponds pas aux questions : transmets-les au commerçant et indique à l’acheteur qu’il sera recontacté.'}
@@ -241,7 +262,7 @@ async function moderate(listingId) {
   const l = await db.one(`SELECT l.id, l.title, l.description, s.name sub, sh.owner_id FROM listings l JOIN subcategories s ON s.id = l.subcategory_id JOIN shops sh ON sh.id = l.shop_id WHERE l.id = $1`, [listingId]);
   if (!l) return;
   const r = await callClaude({
-    feature: 'moderation', maxTokens: 200, toolChoice: { type: 'tool', name: 'resultat' },
+    feature: 'moderation', maxTokens: 400, toolChoice: { type: 'tool', name: 'resultat' },
     tools: [{ name: 'resultat', description: 'Résultat de la modération', input_schema: { type: 'object', properties: { verdict: { type: 'string', enum: ['ok', 'a_verifier'] }, motifs: { type: 'array', items: { type: 'string' } } }, required: ['verdict'] } }],
     system: `Tu modères les annonces de Sunu-Market (Dakar). Articles interdits : ${JSON.stringify(s.prohibited_items)}. Signale aussi les allégations médicales ou de santé, les contrefaçons manifestes et les contenus trompeurs. En cas de doute, « a_verifier ». Ta décision n’est qu’un avis : un modérateur humain tranche.`,
     messages: [{ role: 'user', content: `Sous-catégorie : ${l.sub}\nTitre : ${l.title}\nDescription : ${l.description}` }],
@@ -265,7 +286,7 @@ async function kycPrecheck(id) {
   if (!v?.doc_file || !v?.selfie_file) return;
   const img = async (p) => ({ type: 'image', source: { type: 'base64', media_type: p.endsWith('.png') ? 'image/png' : p.endsWith('.webp') ? 'image/webp' : 'image/jpeg', data: (await fs.readFile(p)).toString('base64') } });
   const r = await callClaude({
-    feature: 'kyc_precheck', maxTokens: 250, toolChoice: { type: 'tool', name: 'avis' },
+    feature: 'kyc_precheck', maxTokens: 400, toolChoice: { type: 'tool', name: 'avis' },
     tools: [{ name: 'avis', description: 'Avis de pré-contrôle', input_schema: { type: 'object', properties: {
       document_lisible: { type: 'boolean' }, type_document: { type: 'string' }, selfie_un_seul_visage: { type: 'boolean' }, problemes: { type: 'array', items: { type: 'string' } } }, required: ['document_lisible', 'selfie_un_seul_visage'] } }],
     system: 'Tu fais un pré-contrôle de qualité pour un modérateur humain. Ne lis pas et ne recopie aucune donnée personnelle. Ne compare pas les visages. Indique seulement si la pièce semble lisible, son type apparent, et si le selfie montre un seul visage net.',

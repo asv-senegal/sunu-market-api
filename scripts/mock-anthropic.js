@@ -30,8 +30,21 @@ const mock = http.createServer((req, res) => {
       content = [{ type: 'text', text: 'Votre titre peut être plus précis.' },
         { type: 'tool_use', id: 't3', name: 'proposer_action', input: { kind: 'listing_update', listing_id: id, summary: 'Titre plus précis', title: 'Smartphone Android 128 Go, garanti entre membres' } }];
     } else content = [{ type: 'text', text: 'ok' }];
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ id: 'msg_test', type: 'message', role: 'assistant', model: b.model, content, stop_reason: 'end_turn', usage: { input_tokens: 1500, output_tokens: 300 } }));
+    const send = (o) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ id: 'msg_test', type: 'message', role: 'assistant', model: b.model, ...o })); };
+
+    // Comme Claude Haiku 5.5 : un message contenant « [refus] » est décliné (HTTP 200, stop_reason « refusal »)
+    if (lastUser.includes('[refus]')) {
+      return send({ content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: null, explanation: 'Simulation de refus' }, usage: { input_tokens: 1500, output_tokens: 0 } });
+    }
+    // Comme Claude Haiku 5.5 : réflexion avant la réponse, sauf si un outil est imposé ; elle compte dans max_tokens.
+    // Effort « low » : réflexion courte ; sinon (défaut « medium ») assez longue pour épuiser un petit plafond.
+    const forced = b.tool_choice && ['tool', 'any'].includes(b.tool_choice.type);
+    const thinkTokens = forced ? 0 : b.output_config?.effort === 'low' ? 150 : 900;
+    if (thinkTokens && thinkTokens + 300 > b.max_tokens) {
+      return send({ content: [{ type: 'thinking', thinking: '', signature: 'sim' }], stop_reason: 'max_tokens', usage: { input_tokens: 1500, output_tokens: b.max_tokens } });
+    }
+    if (thinkTokens) content = [{ type: 'thinking', thinking: '', signature: 'sim' }, ...content];
+    send({ content, stop_reason: content.some((c) => c.type === 'tool_use') ? 'tool_use' : 'end_turn', usage: { input_tokens: 1500, output_tokens: 300 + thinkTokens } });
   });
 });
 

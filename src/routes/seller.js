@@ -17,6 +17,7 @@ const r = Router();
 r.use(['/shop', '/subscription', '/promotions'], requireVerified);
 
 import { setting } from '../lib/settings.js';
+import { idempotent } from '../lib/idempotency.js';
 
 // Créer sa boutique : démarre l'essai gratuit (14 jours, paramétrable)
 r.post('/shop', async (req, res) => {
@@ -109,7 +110,7 @@ r.get('/subscription', async (req, res) => {
 const payBody = z.object({ payMethod: z.enum(['wave', 'orange_money']), payRef: z.string().trim().min(4).max(60).optional() });
 const requireRef = (b) => { const live = liveProviders()[b.payMethod]; if (!live && !b.payRef) throw bad('Indiquez la référence de la transaction reçue par SMS.', 'pay_ref'); };
 
-r.post('/subscription', async (req, res) => {
+r.post('/subscription', idempotent('subscription'), async (req, res) => {
   const shop = await myShop(req.user.id);
   const b = payBody.parse(req.body); requireRef(b);
   if (await db.one(`SELECT 1 FROM payments WHERE shop_id = $1 AND purpose = 'subscription' AND status = 'pending' AND provider = 'manual'`, [shop.id])) throw bad('Un paiement est déjà en attente de confirmation.', 'pending_payment');
@@ -131,7 +132,7 @@ r.get('/promotions', async (req, res) => {
   });
 });
 
-r.post('/promotions', listingUpload.single('image'), async (req, res) => {
+r.post('/promotions', listingUpload.single('image'), idempotent('promotion'), async (req, res) => {
   const file = req.file;
   try {
     const shop = await myShop(req.user.id);

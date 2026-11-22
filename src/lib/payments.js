@@ -6,7 +6,7 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { audit, notify } from './audit.js';
 import { move, pricing } from './credits.js';
-import { bad } from './http.js';
+import { bad, HttpError } from './http.js';
 
 const PREFIX = { subscription: 'AB', credits: 'IA', featured: 'MA', campaign: 'CP', ad: 'PB' };
 const LABEL = { subscription: 'Abonnement annuel', credits: 'Recharge de crédits SM-IA', featured: 'Mise en avant', campaign: 'Campagne promotionnelle', ad: 'Publicité' };
@@ -93,7 +93,14 @@ export async function createPayment({ userId, shopId = null, purpose, purposeId 
   const p = await db.one(
     `INSERT INTO payments (ref, user_id, shop_id, purpose, purpose_id, amount_fcfa, commission_fcfa, total_fcfa, credits, provider, provider_ref)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-    [ref, userId, shopId, purpose, purposeId, amount, commission, amount + commission, credits, live ? provider : 'manual', live ? null : payRef]);
+    [ref, userId, shopId, purpose, purposeId, amount, commission, amount + commission, credits, live ? provider : 'manual', live ? null : payRef?.trim()])
+    .catch((e) => {
+      // Index unique : une référence déclarée ne sert qu'à un seul paiement (migration 004)
+      if (e.code === '23505' && String(e.constraint || e.message).includes('payments_manual_ref_unique')) {
+        throw new HttpError(409, 'Cette référence de transaction a déjà été déclarée. Vérifiez le SMS reçu ou contactez l’équipe.', 'pay_ref_used');
+      }
+      throw e;
+    });
   if (live) {
     const s = provider === 'wave' ? await waveCreate(p) : await omCreate(p);
     return db.one('UPDATE payments SET provider_ref = $2, checkout_url = $3 WHERE id = $1 RETURNING *', [p.id, s.providerRef, s.url]);
@@ -107,7 +114,11 @@ export async function refreshPayment(p) {
   if (p.status !== 'pending' || p.provider === 'manual') return p;
   const s = p.provider === 'wave' ? (p.provider_ref ? await waveStatus(p.provider_ref) : null) : await omStatus(p);
   if (s === 'paid') return markPaid(p.id, null);
-  if (s === 'expired' || s === 'failed') return db.one(`UPDATE payments SET status = $2, updated_at = now() WHERE id = $1 RETURNING *`, [p.id, s]);
+  // Seulement s'il est encore en attente : une confirmation arrivée entre-temps (webhook, équipe) n'est jamais écrasée
+  if (s === 'expired' || s === 'failed') {
+    return (await db.one(`UPDATE payments SET status = $2, updated_at = now() WHERE id = $1 AND status = 'pending' RETURNING *`, [p.id, s]))
+      || db.one('SELECT * FROM payments WHERE id = $1', [p.id]);
+  }
   return p;
 }
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import { db } from '../db.js';
 import { bad, HttpError } from '../lib/http.js';
@@ -22,8 +22,14 @@ async function checkCode(phone, purpose, code) {
 }
 
 const r = Router();
+// Limites comptées par numéro de téléphone : le navigateur ne parle jamais à l'API, toutes les demandes
+// arrivent du serveur web avec la même adresse IP ; une limite par IP bloquerait tous les membres à la fois.
+const byPhone = (req) => {
+  const p = normalizePhone(String(req.body?.phone ?? ''));
+  return p ? `tel:${p}` : `ip:${ipKeyGenerator(req.ip || '')}`;
+};
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false, skip: () => process.env.NODE_ENV === 'test',
-  message: { error: 'Trop de tentatives. Réessayez dans quelques minutes.', code: 'rate_limit' } });
+  keyGenerator: byPhone, message: { error: 'Trop de tentatives. Réessayez dans quelques minutes.', code: 'rate_limit' } });
 
 const phone = z.string().transform((v, ctx) => {
   const p = normalizePhone(v);
@@ -32,7 +38,7 @@ const phone = z.string().transform((v, ctx) => {
 });
 
 const otpLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false, skip: () => process.env.NODE_ENV === 'test',
-  message: { error: 'Trop de demandes de code. Réessayez dans 15 minutes.', code: 'rate_limit' } });
+  keyGenerator: byPhone, message: { error: 'Trop de demandes de code. Réessayez dans 15 minutes.', code: 'rate_limit' } });
 
 // Envoi d'un code à 6 chiffres, valable 10 minutes, 5 essais maximum
 r.post('/otp', otpLimiter, async (req, res) => {

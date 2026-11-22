@@ -9,6 +9,7 @@ import { createPayment, liveProviders } from '../lib/payments.js';
 import { aiSettings, assistantChat, describeListing, improveListing } from '../lib/smia.js';
 import { settings } from '../lib/settings.js';
 import { audit } from '../lib/audit.js';
+import { idempotent } from '../lib/idempotency.js';
 
 const r = Router();
 r.use(requireVerified);
@@ -61,20 +62,20 @@ r.post('/power', async (req, res) => {
   res.json({ enabled: on });
 });
 
-r.post('/assistant', async (req, res) => {
+r.post('/assistant', idempotent('smia_assistant'), async (req, res) => {
   const { text } = z.object({ text: z.string().trim().min(2).max(1000) }).parse(req.body);
   if (!(await settings()).smia_assistant_enabled) throw bad('L’Assistant SM-IA est désactivé par l’administration.', 'assistant_off');
   res.json(await assistantChat(req.user.id, text));
 });
 
-r.post('/describe', async (req, res) => {
+r.post('/describe', idempotent('smia_describe'), async (req, res) => {
   const b = z.object({ title: z.string().trim().max(120).optional(), subcategoryId: z.coerce.number().int().optional(), condition: z.string().max(20).optional(), notes: z.string().trim().max(1500).optional() }).parse(req.body);
   const sub = b.subcategoryId ? await db.one('SELECT s.name, c.name cat FROM subcategories s JOIN categories c ON c.id = s.category_id WHERE s.id = $1', [b.subcategoryId]) : null;
   if (!b.title && !b.notes) throw bad('Indiquez au moins un titre ou quelques notes.', 'empty');
   res.json(await describeListing(req.user.id, { ...b, category: sub ? `${sub.cat} > ${sub.name}` : undefined }));
 });
 
-r.post('/listings/:id/improve', async (req, res) => {
+r.post('/listings/:id/improve', idempotent('smia_improve'), async (req, res) => {
   const l = await db.one(`SELECT l.*, s.name sub FROM listings l JOIN shops sh ON sh.id = l.shop_id JOIN subcategories s ON s.id = l.subcategory_id WHERE l.id = $1 AND sh.owner_id = $2`, [req.params.id, req.user.id]);
   if (!l) throw notFound('Annonce introuvable.');
   res.status(201).json({ action: await improveListing(req.user.id, l) });
@@ -111,7 +112,7 @@ r.get('/quote', async (req, res) => {
   const { amount } = z.object({ amount: z.coerce.number().int().min(1).max(1_000_000) }).parse(req.query);
   res.json(quote(amount, await pricing()));
 });
-r.post('/recharge', async (req, res) => {
+r.post('/recharge', idempotent('credits'), async (req, res) => {
   const b = z.object({ amount: z.number().int().max(1_000_000), payMethod: z.enum(['wave', 'orange_money']), payRef: z.string().trim().min(4).max(60).optional() }).parse(req.body);
   const p = await pricing();
   if (b.amount < p.minRecharge) throw bad(`Recharge minimale : ${p.minRecharge} FCFA.`, 'min_amount');

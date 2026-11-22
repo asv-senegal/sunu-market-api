@@ -10,6 +10,7 @@ import { VISIBLE, PROMO } from '../lib/shop.js';
 import { triggerChatbot } from '../lib/smia.js';
 import { listingUpload, kycUpload, removeFile } from '../lib/upload.js';
 import { optimize } from '../lib/images.js';
+import { idempotent } from '../lib/idempotency.js';
 
 const r = Router();
 r.use(['/conversations', '/orders', '/reports', '/report-evidence'], requireVerified);
@@ -87,7 +88,7 @@ r.get('/conversations/:id', async (req, res) => {
   res.json({ conversation: { ...c, ...meta, iAmSeller: c.seller_id === req.user.id, smiaActive: !!smia?.active }, messages, orders });
 });
 
-r.post('/conversations/:id/messages', async (req, res) => {
+r.post('/conversations/:id/messages', idempotent('message'), async (req, res) => {
   const c = await myConversation(req.params.id, req.user.id);
   const { body } = z.object({ body: z.string().trim().min(1).max(2000) }).parse(req.body);
   const m = await db.tx(async (t) => {
@@ -119,7 +120,7 @@ r.post('/conversations/:id/images', listingUpload.single('image'), async (req, r
 });
 
 // ---------- Commandes ----------
-r.post('/orders', async (req, res) => {
+r.post('/orders', idempotent('order'), async (req, res) => {
   const b = z.object({
     listingId: z.uuid(), quantity: z.coerce.number().int().min(1).max(99).default(1),
     deliveryMode: z.enum(['hand', 'delivery', 'pickup']), payMethod: z.enum(['wave', 'orange_money', 'cash']),
