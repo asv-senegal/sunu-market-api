@@ -8,6 +8,7 @@ import { normalizePhone } from '../lib/text.js';
 import { signToken, publicUser } from '../lib/auth.js';
 import crypto from 'node:crypto';
 import { sendSms, smsIsConsole } from '../lib/sms.js';
+import { audit } from '../lib/audit.js';
 
 // Code SMS exigé à l'inscription (désactivable en développement avec OTP_REQUIRED=false)
 const otpRequired = () => process.env.OTP_REQUIRED !== 'false';
@@ -36,10 +37,10 @@ const otpLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeade
 
 // Envoi d'un code à 6 chiffres, valable 10 minutes, 5 essais maximum
 r.post('/otp', otpLimiter, async (req, res) => {
-  const b = z.object({ phone, purpose: z.enum(['register', 'login']) }).parse(req.body);
+  const b = z.object({ phone, purpose: z.enum(['register', 'login', 'reset']) }).parse(req.body);
   const exists = await db.one('SELECT 1 FROM users WHERE phone = $1', [b.phone]);
   if (b.purpose === 'register' && exists) throw bad('Ce numéro est déjà utilisé.', 'phone_taken');
-  if (b.purpose === 'login' && !exists) return res.json({ sent: true }); // ne révèle pas l'existence du compte
+  if (b.purpose !== 'register' && !exists) return res.json({ sent: true }); // ne révèle pas l'existence du compte
   const recent = await db.one(`SELECT count(*)::int n FROM sms_codes WHERE phone = $1 AND created_at > now() - interval '15 minutes'`, [b.phone]);
   if (recent.n >= 3) throw bad('Trois codes envoyés récemment. Patientez 15 minutes.', 'rate_limit');
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
@@ -77,6 +78,17 @@ r.post('/register', limiter, async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,now(),${otpRequired() ? 'now()' : 'NULL'}) RETURNING *`,
     [b.firstName, b.lastName, b.phone, await bcrypt.hash(b.password, 10), b.quarter || null]);
   res.status(201).json({ token: signToken(u), user: publicUser(u) });
+});
+
+// Mot de passe oublié : code SMS puis nouveau mot de passe (P07, lien « Mot De Passe Oublié »)
+r.post('/reset-password', limiter, async (req, res) => {
+  const b = z.object({ phone, code: z.string().regex(/^\d{6}$/, 'Le code compte 6 chiffres.'), password: z.string().min(8, 'Au moins 8 caractères.').max(100) }).parse(req.body);
+  await checkCode(b.phone, 'reset', b.code);
+  const u = await db.one(`UPDATE users SET password_hash = $2, password_changed_at = now(), phone_verified_at = coalesce(phone_verified_at, now()), updated_at = now()
+    WHERE phone = $1 RETURNING *`, [b.phone, await bcrypt.hash(b.password, 10)]);
+  if (!u) throw new HttpError(400, 'Code expiré ou incorrect.', 'otp_invalid');
+  await audit(u.id, 'auth.password_reset', `user:${u.id}`, {});
+  res.json({ token: signToken(u), user: publicUser(u) });
 });
 
 r.post('/login', limiter, async (req, res) => {

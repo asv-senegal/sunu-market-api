@@ -12,7 +12,8 @@
     "test": "node --env-file-if-exists=.env.test --test --test-concurrency=1 test/*.test.js",
     "create-admin": "node --env-file-if-exists=.env scripts/create-admin.js",
     "mock-ai": "node scripts/mock-anthropic.js 4100",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "seed:history": "node --env-file-if-exists=.env scripts/seed-history.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",

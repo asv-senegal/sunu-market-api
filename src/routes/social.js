@@ -149,7 +149,9 @@ r.get('/orders', async (req, res) => {
   res.json({ items: await db.many(
     `SELECT o.*, (SELECT url FROM listing_photos p WHERE p.listing_id = o.listing_id ORDER BY position LIMIT 1) photo,
        sh.name shop_name, bu.first_name || ' ' || left(bu.last_name,1) || '.' buyer_name,
-       EXISTS (SELECT 1 FROM reviews rv WHERE rv.order_id = o.id AND rv.author_id = $1) reviewed
+       EXISTS (SELECT 1 FROM reviews rv WHERE rv.order_id = o.id AND rv.author_id = $1) reviewed,
+       EXISTS (SELECT 1 FROM reports rp WHERE rp.target_type = 'order' AND rp.target_id = o.id AND rp.status = 'open') reported,
+       EXISTS (SELECT 1 FROM ai_actions a WHERE a.order_id = o.id AND a.kind = 'accept_order') by_ai
      FROM orders o JOIN users bu ON bu.id = o.buyer_id LEFT JOIN shops sh ON sh.owner_id = o.seller_id
      WHERE ${role === 'buyer' ? 'o.buyer_id' : 'o.seller_id'} = $1 ORDER BY o.created_at DESC LIMIT 200`, [req.user.id]) });
 });

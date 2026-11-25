@@ -34,14 +34,25 @@ r.get('/stats', async (_req, res) => {
             (SELECT count(*)::int FROM listings WHERE status = 'active') active_listings,
             (SELECT count(*)::int FROM reports WHERE status = 'open') open_reports,
             (SELECT count(*)::int FROM orders WHERE created_at > now() - interval '30 days') orders_30d,
-            (SELECT coalesce(sum(total_fcfa),0)::int FROM payments WHERE status = 'paid' AND paid_at > date_trunc('month', now())) revenue_month`);
+            (SELECT coalesce(sum(total_fcfa),0)::int FROM payments WHERE status = 'paid' AND paid_at > date_trunc('month', now())) revenue_month,
+            (SELECT coalesce(sum(CASE WHEN purpose = 'credits' THEN commission_fcfa ELSE total_fcfa END),0)::int FROM payments WHERE status = 'paid'
+               AND paid_at BETWEEN date_trunc('month', now()) - interval '1 month' AND date_trunc('month', now())) revenue_prev,
+            (SELECT count(*)::int FROM users WHERE verification_status = 'verified' AND updated_at > now() - interval '30 days') verified_30d,
+            (SELECT count(DISTINCT rp.target_id)::int FROM reports rp WHERE rp.target_type = 'listing' AND rp.status = 'open') flagged_listings,
+            (SELECT count(*)::int FROM reports WHERE status = 'open' AND created_at < now() - interval '48 hours') late_reports,
+            (SELECT count(*)::int FROM subscriptions WHERE kind = 'trial' AND status = 'active' AND ends_at BETWEEN now() AND now() + interval '7 days') trials_ending,
+            (SELECT coalesce(sum(cost_usd),0)::float FROM ai_calls WHERE created_at > now() - interval '7 days') ai_cost_week,
+            (SELECT coalesce(sum(cost_usd),0)::float FROM ai_calls WHERE created_at BETWEEN now() - interval '14 days' AND now() - interval '7 days') ai_cost_prev,
+            (SELECT min(submitted_at) FROM verifications WHERE status = 'pending') oldest_verification`);
+  const urgent = await db.one(`SELECT r.id, r.ref, r.reason, (SELECT count(*)::int FROM reports x WHERE x.target_id = r.target_id AND x.status = 'open') n
+    FROM reports r WHERE r.status = 'open' ORDER BY r.created_at LIMIT 1`);
   const byCategory = await db.many(
     `SELECT c.name, count(l.id)::int n FROM categories c LEFT JOIN subcategories s ON s.category_id = c.id
      LEFT JOIN listings l ON l.subcategory_id = s.id AND l.status = 'active' WHERE NOT c.is_shops GROUP BY c.id ORDER BY c.position`);
   const signups = await db.many(
     `SELECT to_char(d, 'YYYY-MM-DD') AS day, (SELECT count(*)::int FROM users u WHERE u.created_at::date = d::date) n
      FROM generate_series(now() - interval '13 days', now(), interval '1 day') d`);
-  res.json({ kpi: k, byCategory, signups, revenue: await revenueSeries() });
+  res.json({ kpi: k, urgent, byCategory, signups, revenue: await revenueSeries() });
 });
 
 // Revenus par mois (6 derniers) et par source ; commission seule pour les recharges SM-IA
@@ -56,6 +67,38 @@ async function revenueSeries() {
      FROM payments WHERE status = 'paid' AND paid_at > date_trunc('month', now()) - interval '5 months' GROUP BY purpose`);
   return { months, split };
 }
+
+// Recherche transversale de la barre haute : comptes, commandes, annonces, signalements, paiements
+r.get('/search', async (req, res) => {
+  const { q } = z.object({ q: z.string().trim().min(2).max(80) }).parse(req.query);
+  const perms = await permsOf(req.user.role);
+  const like = `%${q}%`;
+  const out = {};
+  out.users = await db.many(`SELECT id, first_name, last_name, phone, quarter, verification_status, status, role FROM users
+    WHERE first_name || ' ' || last_name ILIKE $1 OR phone ILIKE $1 OR id::text = $2 ORDER BY created_at DESC LIMIT 8`, [like, q]);
+  out.orders = await db.many(`SELECT id, ref, title_snapshot, total_fcfa, status FROM orders WHERE ref ILIKE $1 OR title_snapshot ILIKE $1 ORDER BY created_at DESC LIMIT 8`, [like]);
+  if (perms.includes('moderate')) {
+    out.listings = await db.many(`SELECT l.id, l.title, l.status, s.name shop_name FROM listings l JOIN shops s ON s.id = l.shop_id WHERE l.title ILIKE $1 OR s.name ILIKE $1 ORDER BY l.created_at DESC LIMIT 8`, [like]);
+    out.reports = await db.many(`SELECT id, ref, reason, status FROM reports WHERE ref ILIKE $1 OR reason ILIKE $1 ORDER BY created_at DESC LIMIT 8`, [like]);
+  }
+  if (perms.includes('revenue')) out.payments = await db.many(`SELECT id, ref, purpose, total_fcfa, status FROM payments WHERE ref ILIKE $1 OR provider_ref ILIKE $1 ORDER BY created_at DESC LIMIT 8`, [like]);
+  await audit(req.user.id, 'admin.search', 'search', { q });
+  res.json(out);
+});
+
+// Rapport mensuel exportable (bouton « Exporter Le Rapport » du tableau de bord)
+r.get('/report.csv', requirePerm('export'), async (req, res) => {
+  const m = await revenueSeries();
+  const k = await db.one(`SELECT (SELECT count(*)::int FROM users WHERE verification_status = 'verified') verified,
+     (SELECT count(*)::int FROM shops) shops, (SELECT count(*)::int FROM listings WHERE status = 'active') listings,
+     (SELECT count(*)::int FROM reports WHERE created_at > date_trunc('month', now())) reports,
+     (SELECT count(*)::int FROM orders WHERE created_at > date_trunc('month', now())) orders`);
+  const rows = [['Indicateur', 'Valeur'], ['Comptes vérifiés', k.verified], ['Boutiques', k.shops], ['Annonces en ligne', k.listings],
+    ['Commandes du mois (entre membres, non encaissées)', k.orders], ['Signalements du mois', k.reports],
+    ...m.months.map((x) => [`Revenus ${x.month} (FCFA)`, x.total]), ...m.split.map((x) => [`Source ${x.purpose} sur 6 mois (FCFA)`, x.amount])];
+  await audit(req.user.id, 'export.report', 'report', {});
+  csv(res, 'rapport-sunu-market.csv', rows[0], rows.slice(1));
+});
 
 // ---------- Vérifications d'identité ----------
 r.get('/verifications', requirePerm('verify'), async (req, res) => {
@@ -104,9 +147,14 @@ r.get('/listings', requirePerm('moderate'), async (req, res) => {
   res.json({ items: await db.many(
     `SELECT l.id, l.title, l.price_fcfa, l.status, l.created_at, sh.name shop_name, sh.slug shop_slug, c.name category, s.name sub, (l.featured_until > now()) featured,
        (SELECT url FROM listing_photos ph WHERE ph.listing_id = l.id ORDER BY position LIMIT 1) photo,
-       (SELECT count(*)::int FROM reports rp WHERE rp.target_type = 'listing' AND rp.target_id = l.id AND rp.status = 'open') open_reports
+       (SELECT count(*)::int FROM reports rp WHERE rp.target_type = 'listing' AND rp.target_id = l.id AND rp.status = 'open') open_reports,
+       (SELECT rp.reason FROM reports rp WHERE rp.target_type = 'listing' AND rp.target_id = l.id AND rp.status = 'open' GROUP BY rp.reason ORDER BY count(*) DESC LIMIT 1) top_reason,
+       (SELECT rp.id FROM reports rp WHERE rp.target_type = 'listing' AND rp.target_id = l.id AND rp.status = 'open' ORDER BY rp.created_at LIMIT 1) report_id
      FROM listings l JOIN shops sh ON sh.id = l.shop_id JOIN subcategories s ON s.id = l.subcategory_id JOIN categories c ON c.id = s.category_id
-     ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY open_reports DESC, l.created_at DESC LIMIT 200`, p) });
+     ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY open_reports DESC, l.created_at DESC LIMIT 200`, p),
+    stats: await db.one(`SELECT (SELECT count(*)::int FROM listings WHERE status = 'removed' AND updated_at > date_trunc('month', now())) removed_month,
+       (SELECT count(*)::int FROM reports WHERE decision = 'warn' AND decided_at > date_trunc('month', now())) warned_month,
+       (SELECT round(avg(extract(epoch FROM decided_at - created_at) / 3600))::int FROM reports WHERE decided_at > now() - interval '30 days') avg_hours`) });
 });
 
 r.post('/listings/:id/remove', requirePerm('moderate'), async (req, res) => {
