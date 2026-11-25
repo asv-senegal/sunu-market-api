@@ -11,6 +11,7 @@ import { removeFile } from '../lib/upload.js';
 import { markPaid, purposeLabel } from '../lib/payments.js';
 import { clearSettingsCache, settings } from '../lib/settings.js';
 import { normalizePhone } from '../lib/text.js';
+import { verifyAuditChain } from '../lib/audit-verify.js';
 
 const r = Router();
 r.use((req, _res, next) => (req.user && STAFF.includes(req.user.role) ? next() : next(forbidden('Accès réservé à l’administration.', 'role'))));
@@ -350,15 +351,9 @@ r.get('/audit', requirePerm('export'), async (_req, res) => {
   res.json({ items: await db.many(
     `SELECT a.*, coalesce(u.first_name || ' ' || u.last_name, 'Système') actor_name, u.role actor_role FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT 300`) });
 });
-// Contrôle d'intégrité : recalcule toute la chaîne d'empreintes
+// Contrôle d'intégrité : recalcule toute la chaîne d'empreintes (SHA-256 de Node, sans pgcrypto)
 r.get('/audit/verify', requirePerm('export'), async (_req, res) => {
-  const bad = await db.one(
-    `WITH x AS (SELECT id, hash, prev_hash, lag(hash) OVER (ORDER BY id) expected_prev,
-       encode(digest(coalesce(prev_hash, '') || '|' || id || '|' || coalesce(actor_id::text, '') || '|' || action || '|' || coalesce(target, '') || '|' || details::text
-         || '|' || to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), 'sha256'), 'hex') recomputed FROM audit_log)
-     SELECT count(*)::int total, count(*) FILTER (WHERE hash IS DISTINCT FROM recomputed OR prev_hash IS DISTINCT FROM expected_prev)::int broken,
-       min(id) FILTER (WHERE hash IS DISTINCT FROM recomputed OR prev_hash IS DISTINCT FROM expected_prev) first_broken FROM x`);
-  res.json(bad);
+  res.json(await verifyAuditChain());
 });
 r.get('/audit.csv', requirePerm('export'), async (req, res) => {
   const rows = await db.many(`SELECT a.id, to_char(a.created_at AT TIME ZONE 'Africa/Dakar','DD/MM/YYYY HH24:MI:SS') d, coalesce(u.first_name || ' ' || u.last_name, 'Système') actor, a.action, a.target, a.details, a.hash FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id`);

@@ -46,7 +46,7 @@ N0C menu names below are those of the English interface; the French interface us
 2. Create a **database** (for example `sunumarket`) and a **user** with a strong password, and give the user **all privileges** on the database. N0C usually prefixes both names with your account name, for example `abcd_sunumarket`: use the full names it shows.
 3. Note the details. The database runs on the same server: address `localhost`, port `5432`.
 
-The first migration enables the `pgcrypto` extension. If the API log shows a permission error on `CREATE EXTENSION`, ask PlanetHoster support to enable `pgcrypto` on your database.
+The API needs no PostgreSQL extension (no `pgcrypto`): UUIDs and the audit-log fingerprints use functions built into PostgreSQL 13 and later. N0C provides PostgreSQL 16.
 
 > Production starts from an **empty** database. Do not copy the development database (Neon): it holds demo accounts and test data.
 
@@ -274,7 +274,7 @@ After any change to `.env`, restart the app (N0C → Node.js → **Restart**).
 | FTP step cannot connect | Protocol or server | Try `FTP_PROTOCOL` = `ftp`; check the server name. |
 | Health check fails after a push | New packages not installed, or the app did not restart | Click **Run NPM Install** then **Restart** in N0C, then **Re-run jobs** in GitHub. |
 | `/health` returns 503, app does not start | Error at start-up | Read the app log in N0C: usually `DATABASE_URL`, a missing `JWT_SECRET`, or a failed migration. |
-| Log shows "permission denied … CREATE EXTENSION" | `pgcrypto` not allowed | Ask PlanetHoster to enable `pgcrypto`. |
+| `extension "pgcrypto" is not available` | Old version of the code (before migration 005) | Push the current code: the next deployment no longer asks for it: no extension is needed any more. |
 | Log shows "Variable d'environnement manquante" | Required variable missing | Complete `.env`, then **Restart**. |
 | App error mentioning `node_modules` and a symlink | A real `node_modules` folder exists | Delete `~/sunumarketapi/node_modules`, then **Run NPM Install**. |
 | SSH step: "Permission denied (publickey)" | Key not authorized | Redo step 7.2: the public key goes to N0C, the private key to GitHub. |

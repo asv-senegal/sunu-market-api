@@ -195,21 +195,23 @@ CREATE TABLE report_evidence (
 );
 
 -- ---------- Journal d'audit : empreinte chaînée ----------
+-- SHA-256 intégré à PostgreSQL (11+), sans pgcrypto. convert_to(..., encodage de la base) donne exactement les octets
+-- que hachait digest() de pgcrypto : les empreintes sont identiques.
 ALTER TABLE audit_log ADD COLUMN prev_hash text;
 ALTER TABLE audit_log ADD COLUMN hash text;
 CREATE OR REPLACE FUNCTION audit_chain() RETURNS trigger AS $$
 BEGIN
   PERFORM pg_advisory_xact_lock(424242);
   SELECT hash INTO NEW.prev_hash FROM audit_log ORDER BY id DESC LIMIT 1;
-  NEW.hash := encode(digest(coalesce(NEW.prev_hash, '') || '|' || NEW.id || '|' || coalesce(NEW.actor_id::text, '') || '|' || NEW.action
-    || '|' || coalesce(NEW.target, '') || '|' || NEW.details::text || '|' || to_char(NEW.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), 'sha256'), 'hex');
+  NEW.hash := encode(sha256(convert_to(coalesce(NEW.prev_hash, '') || '|' || NEW.id || '|' || coalesce(NEW.actor_id::text, '') || '|' || NEW.action
+    || '|' || coalesce(NEW.target, '') || '|' || NEW.details::text || '|' || to_char(NEW.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), getdatabaseencoding())), 'hex');
   RETURN NEW;
 END $$ LANGUAGE plpgsql;
 ALTER TABLE audit_log DISABLE TRIGGER audit_append_only;
 DO $$ DECLARE r record; prev text := NULL; h text; BEGIN
   FOR r IN SELECT * FROM audit_log ORDER BY id LOOP
-    h := encode(digest(coalesce(prev, '') || '|' || r.id || '|' || coalesce(r.actor_id::text, '') || '|' || r.action || '|' || coalesce(r.target, '')
-      || '|' || r.details::text || '|' || to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), 'sha256'), 'hex');
+    h := encode(sha256(convert_to(coalesce(prev, '') || '|' || r.id || '|' || coalesce(r.actor_id::text, '') || '|' || r.action || '|' || coalesce(r.target, '')
+      || '|' || r.details::text || '|' || to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), getdatabaseencoding())), 'hex');
     UPDATE audit_log SET prev_hash = prev, hash = h WHERE id = r.id;
     prev := h;
   END LOOP;

@@ -2,7 +2,8 @@
 -- Paiement direct entre membres : aucune table de paiement de commande.
 -- Seuls les services de la plateforme (abonnement, mise en avant, crédits SM-IA) sont encaissés.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- Aucune extension requise : gen_random_uuid() est intégrée à PostgreSQL depuis la version 13.
+-- (pgcrypto n'est pas disponible sur tous les hébergements, dont PlanetHoster N0C.)
 
 -- ---------- Membres ----------
 CREATE TABLE users (

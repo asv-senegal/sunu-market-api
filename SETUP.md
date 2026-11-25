@@ -28,7 +28,7 @@ Examples used below: replace them with your own values.
 | 3 | **Wrong Node** | Without activating the app's Node environment, the terminal uses the server's default Node, often older than 22. | Activate the environment first (step 7). |
 | 4 | **`node_modules` is a real folder** | On N0C it must be a link to the Node environment. Running `npm install` before creating the Node.js app creates a real folder. | `rm -rf node_modules`, activate the environment, install again. |
 | 5 | **App settings** | Startup file not `server.cjs`, or the application root is not `sunumarketapi`. | Step 5. |
-| 6 | **Database** | Missing privileges, or the `pgcrypto` extension is not allowed. | Step 2. |
+| 6 | **Database** | Missing privileges, or old code still asking for the `pgcrypto` extension (N0C does not provide it). | Step 2; `git pull` the current code. |
 
 **To see the real error**, start the API by hand in the terminal (after step 7). If it fails, the error is printed:
 
@@ -52,7 +52,7 @@ API_PORT=3998 timeout 30 node server.cjs & sleep 10; curl -s http://127.0.0.1:39
 2. Create a **database** (for example `sunumarket`) and a **user** with a strong password, and give the user **all privileges** on the database. N0C usually prefixes both names with your account name, for example `abcd_sunumarket`: use the full names it shows.
 3. Note the details. The database runs on the same server: address `localhost`, port `5432`.
 
-The first migration enables the `pgcrypto` extension. If step 8 fails with a permission error on `CREATE EXTENSION`, ask PlanetHoster support to enable `pgcrypto` on your database.
+The API needs no PostgreSQL extension (no `pgcrypto`): UUIDs and the audit-log fingerprints use functions built into PostgreSQL 13 and later. N0C provides PostgreSQL 16.
 
 > Production starts from an **empty** database. Do not copy the development database: it holds demo accounts and test data.
 
@@ -276,6 +276,6 @@ After any change to `.env`: `touch ~/sunumarketapi/tmp/restart.txt` (or **Restar
 | Script stops: "node_modules est un vrai dossier" | Cause 4 | `rm -rf node_modules`, then step 7 and the script again. |
 | `Variable d'environnement manquante : …` | `.env` incomplete | Step 6. |
 | `password authentication failed` or `ECONNREFUSED` | Wrong `DATABASE_URL` | Check user, password, database name and `localhost:5432`. |
-| `permission denied to create extension "pgcrypto"` | Extension not allowed | Ask PlanetHoster support to enable `pgcrypto`. |
+| `extension "pgcrypto" is not available` | Old version of the code (before migration 005) | `git pull` (or push) the current code, then run the update again: no extension is needed any more. |
 | `/health` shows an N0C error page | App not started or wrong settings | Run the manual start command at the top of this guide; check step 5. |
 | Old version after an update | App not restarted | `touch ~/sunumarketapi/tmp/restart.txt`, or **Restart** in N0C. |
