@@ -14,6 +14,7 @@ cp .env.example .env      # DATABASE_URL, JWT_SECRET, etc.
 npm run migrate           # applique migrations/*.sql
 npm run seed              # 12 catégories et 93 sous-catégories
 npm run seed -- --demo    # (facultatif, hors production) comptes, boutiques et annonces fictifs
+npm run seed:history      # (facultatif, hors production) 12 mois d’historique fictif pour les tableaux de bord
 npm run create-admin -- "+221XXXXXXXXX" "MotDePasseDe12Caracteres" "Prénom" "Nom"
 npm run dev               # http://localhost:4000
 ```

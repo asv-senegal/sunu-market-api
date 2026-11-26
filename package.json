@@ -14,7 +14,8 @@
     "mock-ai": "node scripts/mock-anthropic.js 4100",
     "demo": "node scripts/demo.mjs",
     "check-smia": "node --env-file-if-exists=.env scripts/check-smia-guards.mjs",
-    "jobs": "node scripts/run-jobs.mjs"
+    "jobs": "node scripts/run-jobs.mjs",
+    "seed:history": "node --env-file-if-exists=.env scripts/seed-history.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",

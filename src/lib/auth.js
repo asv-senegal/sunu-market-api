@@ -13,7 +13,7 @@ export async function loadUser(req, _res, next) {
   try {
     const { sub } = jwt.verify(token, config.jwtSecret);
     req.user = await db.one(
-      `SELECT id, first_name, last_name, phone, quarter, city, role, verification_status, status, last_seen_at FROM users WHERE id = $1`, [sub]);
+      `SELECT id, first_name, last_name, phone, quarter, city, role, verification_status, status, last_seen_at, created_at, deletion_requested_at FROM users WHERE id = $1`, [sub]);
     // Présence du commerçant (SM-IA Commandes répond quand il est hors ligne)
     if (req.user && (!req.user.last_seen_at || Date.now() - new Date(req.user.last_seen_at).getTime() > 60_000)) {
       db.query('UPDATE users SET last_seen_at = now() WHERE id = $1', [sub]).catch(() => {});
@@ -52,4 +52,5 @@ export const requirePerm = (perm) => async (req, _res, next) => {
 export const publicUser = (u) => u && ({
   id: u.id, firstName: u.first_name, lastName: u.last_name, phone: u.phone, quarter: u.quarter, city: u.city,
   role: u.role, verificationStatus: u.verification_status, status: u.status,
+  createdAt: u.created_at, deletionRequestedAt: u.deletion_requested_at || null,
 });
