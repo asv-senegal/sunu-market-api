@@ -10,16 +10,23 @@ export async function loadUser(req, _res, next) {
   const h = req.headers.authorization || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
   if (!token) return next();
+  let sub;
   try {
-    const { sub } = jwt.verify(token, config.jwtSecret);
+    ({ sub } = jwt.verify(token, config.jwtSecret));
+  } catch { return next(); } // jeton invalide ou expiré : visiteur
+  // Une erreur de base de données n'est pas un jeton invalide : on la signale au lieu de déconnecter tout le monde
+  // (par exemple une migration non appliquée, qui ferait échouer cette requête pour chaque membre).
+  try {
     req.user = await db.one(
       `SELECT id, first_name, last_name, phone, quarter, city, role, verification_status, status, last_seen_at, created_at, deletion_requested_at FROM users WHERE id = $1`, [sub]);
     // Présence du commerçant (SM-IA Commandes répond quand il est hors ligne)
     if (req.user && (!req.user.last_seen_at || Date.now() - new Date(req.user.last_seen_at).getTime() > 60_000)) {
       db.query('UPDATE users SET last_seen_at = now() WHERE id = $1', [sub]).catch(() => {});
     }
-  } catch { /* jeton invalide : visiteur */ }
-  next();
+    next();
+  } catch (err) {
+    next(err); // erreur 500 journalisée par le gestionnaire d'erreurs, visible dans le journal de l'API
+  }
 }
 
 export const requireAuth = (req, _res, next) => (req.user ? next() : next(new HttpError(401, 'Connectez-vous pour continuer.', 'auth_required')));
